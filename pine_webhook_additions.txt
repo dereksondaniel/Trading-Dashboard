@@ -1,0 +1,58 @@
+//====================================================
+// WEBHOOK PAYLOAD - ADD THIS NEAR THE END OF YOUR V7 SCRIPT
+// (just before the existing //ALERTS section)
+//====================================================
+
+// Build a JSON string with everything the dashboard needs.
+// {{strategy.order.alert_message}} style placeholders don't work on indicators,
+// so we construct the JSON inside the script and pass it as the alert message.
+
+f_buildPayload(sideStr) =>
+    entryPx = sideStr == "LONG"  ? close :
+              sideStr == "SHORT" ? close : na
+    stopPx  = sideStr == "LONG"  ? math.min(low, bullBreakLevel) - atrVal * slAtrMult :
+              sideStr == "SHORT" ? math.max(high, bearBreakLevel) + atrVal * slAtrMult : na
+    tpPx    = sideStr == "LONG"  ? entryPx + (entryPx - stopPx) * rrTarget :
+              sideStr == "SHORT" ? entryPx - (stopPx - entryPx) * rrTarget : na
+
+    '{' +
+      '"secret":"REPLACE_WITH_YOUR_SECRET",' +
+      '"symbol":"' + syminfo.ticker + '",' +
+      '"timeframe":"' + timeframe.period + '",' +
+      '"side":"' + sideStr + '",' +
+      '"trend":"' + trendText + '",' +
+      '"structure":"' + structureText + '",' +
+      '"swing":"' + swingText + '",' +
+      '"zone":"' + zoneText + '",' +
+      '"reaction":"' + reactionText + '",' +
+      '"breakout":"' + breakText + '",' +
+      '"bos":"' + bosText + '",' +
+      '"choch":"' + chochText + '",' +
+      '"atr_state":"' + atrText + '",' +
+      '"session":"' + (sessionOk ? "ON" : "OFF") + '",' +
+      '"price":' + str.tostring(close, "#.#####") + ',' +
+      '"entry":' + (na(entryPx) ? "null" : str.tostring(entryPx, "#.#####")) + ',' +
+      '"sl":' + (na(stopPx) ? "null" : str.tostring(stopPx, "#.#####")) + ',' +
+      '"tp":' + (na(tpPx) ? "null" : str.tostring(tpPx, "#.#####")) + ',' +
+      '"rr":' + str.tostring(rrTarget, "#.##") + ',' +
+      '"time":"{{timenow}}"' +
+    '}'
+
+// STATUS payload — fires every bar close so dashboard stays fresh
+statusPayload = f_buildPayload("STATUS")
+
+// TRADE payloads — only fire on real signals
+alertcondition(bullBreakoutFinal, title="V7 LONG Breakout",
+     message='{"secret":"REPLACE_WITH_YOUR_SECRET","symbol":"{{ticker}}","timeframe":"{{interval}}","side":"LONG","type":"BREAKOUT","price":{{close}},"time":"{{timenow}}"}')
+
+alertcondition(bearBreakoutFinal, title="V7 SHORT Breakout",
+     message='{"secret":"REPLACE_WITH_YOUR_SECRET","symbol":"{{ticker}}","timeframe":"{{interval}}","side":"SHORT","type":"BREAKOUT","price":{{close}},"time":"{{timenow}}"}')
+
+alertcondition(bullReaction, title="V7 LONG Reaction",
+     message='{"secret":"REPLACE_WITH_YOUR_SECRET","symbol":"{{ticker}}","timeframe":"{{interval}}","side":"LONG","type":"REACTION","price":{{close}},"time":"{{timenow}}"}')
+
+alertcondition(bearReaction, title="V7 SHORT Reaction",
+     message='{"secret":"REPLACE_WITH_YOUR_SECRET","symbol":"{{ticker}}","timeframe":"{{interval}}","side":"SHORT","type":"REACTION","price":{{close}},"time":"{{timenow}}"}')
+
+// STATUS alert — fires every bar close, keeps dashboard live
+alertcondition(barstate.isconfirmed, title="V7 Status Update", message=statusPayload)
